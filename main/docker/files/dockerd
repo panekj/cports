@@ -1,0 +1,5 @@
+type = process
+command = /usr/bin/dockerd
+logfile = /var/log/dockerd.log
+depends-on = local.target
+depends-on = network.target
