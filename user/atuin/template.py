@@ -5,7 +5,7 @@ build_style = "cargo"
 # we patch Cargo.toml and Cargo.lock
 prepare_after_patch = True
 make_build_args = ["--no-default-features"]
-hostmakedepends = ["cargo-auditable", "protobuf-protoc", "pkgconf"]
+hostmakedepends = ["cargo-auditable", "pkgconf"]
 makedepends = ["sqlite-devel", "openssl3-devel", "rust-std"]
 pkgdesc = "Sync, search and backup tool for shell history"
 license = "MIT"
@@ -16,8 +16,6 @@ sha256 = "02228929976142f63b4464a35b8b29b29155e1814cf03e99c95381954c5d9e37"
 # generates completions using host binary
 options = ["!check", "!cross"]
 
-# TODO service + sysusers
-
 
 def build(self):
     tgt_base = f"target/{self.profile().triplet}/release"
@@ -27,7 +25,7 @@ def build(self):
         self.mv(f"{tgt_base}/atuin", f"{tgt_base}/atuin-server")
 
     with self.stamp("client"):
-        self.cargo.build(["--features=client,sync,clipboard"])
+        self.cargo.build(["--features=client,sync,clipboard,daemon"])
 
     for shell in ["bash", "fish", "nushell", "zsh"]:
         with open(self.cwd / f"atuin.{shell}", "w") as outf:
@@ -51,14 +49,27 @@ def install(self):
         "crates/atuin-server/server.toml", "usr/share/examples/atuin"
     )
 
+    self.install_service(self.files_path / "atuin.user")
+
+    self.install_service(self.files_path / "atuin-server")
+    self.install_tmpfiles(self.files_path / "tmpfiles.conf")
+    self.install_sysusers(self.files_path / "sysusers.conf")
+
+    self.install_file(self.files_path / "atuin-server.default", "usr/share/atuin")
+
     self.install_license("LICENSE")
 
 
 @subpackage("atuin-server")
 def _(self):
     self.subdesc = "server"
+    self.depends = ["postgresql"]
 
     return [
         "usr/bin/atuin-server",
         "usr/share/examples",
+        "usr/share/atuin",
+        "usr/lib/dinit.d/atuin-server",
+        "usr/lib/sysusers.d/atuin.conf",
+        "usr/lib/tmpfiles.d/atuin.conf",
     ]
