@@ -1,0 +1,8 @@
+type = process
+command = /usr/bin/traefik
+run-as = _traefik
+working-dir = /var/lib/traefik
+logfile = /var/log/traefik.log
+capabilities = ^cap_net_bind_service
+depends-on: local.target
+load-options: export-passwd-vars
