@@ -131,6 +131,10 @@ def post_install(self):
     self.install_link("usr/lib/cups/backend/smb", "../../../bin/smbspool")
     # private dir
     self.install_tmpfiles(self.files_path / "tmpfiles.conf")
+    self.install_sysusers(self.files_path / "sysusers.conf")
+    self.install_service(self.files_path / "nmbd")
+    self.install_service(self.files_path / "smbd")
+    self.install_service(self.files_path / "winbindd")
 
 
 @subpackage("samba-common")
@@ -237,6 +241,7 @@ def _(self):
         "usr/bin/ntlm_auth",
         "usr/bin/wbinfo",
         "usr/bin/winbindd",
+        "usr/lib/dinit.d/winbindd",
         "usr/lib/samba/idmap",
         "usr/lib/samba/krb5",
         "usr/lib/samba/nss_info",

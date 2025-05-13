@@ -1,0 +1,7 @@
+type = process
+command = /usr/bin/smbd --foreground --no-process-group
+run-as = _samba
+working-dir = /var/lib/samba
+capabilities = ^cap_net_bind_service
+depends-on: local.target
+load-options: export-passwd-vars
