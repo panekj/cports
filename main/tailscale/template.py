@@ -37,6 +37,7 @@ def post_install(self):
     self.install_license("LICENSE")
     self.install_service("^/tailscaled")
     self.install_tmpfiles("^/tmpfiles.conf")
+    self.install_sysusers("^/sysusers.conf")
     self.install_file("^/envfile", "usr/share/tailscale")
     for shell in ["bash", "fish", "zsh"]:
         self.install_completion(f"tailscale.{shell}", shell)

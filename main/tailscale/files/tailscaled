@@ -1,6 +1,10 @@
 type = process
 command = /usr/bin/tailscaled
+run-as = _tailscaled
+logfile = /var/log/tailscaled.log
 depends-on = network.target
 depends-on = local.target
+capabilities = ^cap_net_admin
 env-file = /etc/default/tailscaled
 smooth-recovery = true
+load-options: export-passwd-vars
