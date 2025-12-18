@@ -1,0 +1,54 @@
+From 616f914f22bd69718e1ad381f0d2eafb341de2c2 Mon Sep 17 00:00:00 2001
+From: Jakub Panek <me@panekj.dev>
+Date: Thu, 18 Dec 2025 13:16:53 +0100
+Subject: [PATCH] fix more stuff
+
+---
+ src/daemon.c | 4 ++--
+ src/main.c   | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/daemon.c b/src/daemon.c
+index 68a043d4632c..0a76abf6e196 100644
+--- a/src/daemon.c
++++ b/src/daemon.c
+@@ -134,9 +134,9 @@ void savePID(void)
+ 	FILE *f = NULL;
+ 	if((f = fopen(config.files.pid.v.s, "w+")) == NULL)
+ 	{
+ 		// Log error
+-		log_warn("Unable to write PID to file: %s", strerror(errno));
++		log_warn("Unable to write PID to file '%s': %s", config.files.pid.v.s, strerror(errno));
+ 	}
+ 	else
+ 	{
+ 		// Write PID to file
+@@ -484,9 +484,9 @@ void calc_cpu_usage(const unsigned int interval)
+ 	last_ftl_cpu_time = ftl_cpu_time;
+ 
+ 	// Calculate the total CPU usage
+ 	const double cpu_time = parse_proc_stat();
+-	
++
+ 	// Calculate the CPU usage since the last call to this function
+ 	static double last_cpu_time = 0.0f;
+ 	total_cpu_usage = 100.0 * (cpu_time - last_cpu_time) / interval / norm_factor;
+ 	last_cpu_time = cpu_time;
+diff --git a/src/main.c b/src/main.c
+index 9afb6f3fa1cf..48e94c79c6dd 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -92,9 +92,9 @@ int main (int argc, char *argv[])
+ 	}
+ 
+ 	// pihole-FTL should really be run as user "pihole" to not mess up with file permissions
+ 	// print warning otherwise
+-	if(strcmp(username, "pihole") != 0)
++	if(strcmp(username, "_pihole") != 0)
+ 		log_warn("Starting pihole-FTL as user %s is not recommended", username);
+ 
+ 	// Write PID early on so systemd cannot be fooled during DELAY_STARTUP
+ 	// times. The PID in this file will later be overwritten after forking
+-- 
+2.52.0
+

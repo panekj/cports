@@ -1,0 +1,74 @@
+From 66dbd4c683185f839cee8cb60982ab80bd357d16 Mon Sep 17 00:00:00 2001
+From: Jakub Panek <me@panekj.dev>
+Date: Thu, 18 Dec 2025 12:55:52 +0100
+Subject: [PATCH] fix gravity script for bsd
+
+---
+ gravity.sh | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/pi-hole-6.1.2/gravity.sh b/pi-hole-6.1.2/gravity.sh
+index 16e459c68c2e..c89348e52dd0 100755
+--- a/pi-hole-6.1.2/gravity.sh
++++ b/pi-hole-6.1.2/gravity.sh
+@@ -67,9 +67,9 @@ gravityBCKfile="${gravityBCKdir}/gravity.db"
+ fix_owner_permissions() {
+   # Fix ownership and permissions for the specified file
+   # User and group are set to pihole:pihole
+   # Permissions are set to 664 (rw-rw-r--)
+-  chown pihole:pihole "${1}"
++  chown _pihole:_pihole "${1}"
+   chmod 664 "${1}"
+ 
+   # Ensure the containing directory is group writable
+   chmod g+w "$(dirname -- "${1}")"
+@@ -117,11 +117,11 @@ gravity_swap_databases() {
+   echo -ne "  ${INFO} ${str}..."
+ 
+   # Swap databases and remove or conditionally rename old database
+   # Number of available blocks on disk
+-  availableBlocks=$(stat -f --format "%a" "${gravityDIR}")
++  availableBlocks=$(df -k "${gravityDIR}" | awk 'NR==2 {print $4}')
+   # Number of blocks, used by gravity.db
+-  gravityBlocks=$(stat --format "%b" "${gravityDBfile}")
++  gravityBlocks=$(stat -f "%b" "${gravityDBfile}")
+   # Only keep the old database if available disk space is at least twice the size of the existing gravity.db.
+   # Better be safe than sorry...
+   oldAvail=false
+   if [ "${availableBlocks}" -gt "$((gravityBlocks * 2))" ] && [ -f "${gravityDBfile}" ]; then
+@@ -138,9 +138,9 @@ gravity_swap_databases() {
+     echo -e "\\n  ${CROSS} Unable to clean current database for backup\\n  ${output}"
+   else
+     # Check if the backup directory exists
+     if [ ! -d "${gravityBCKdir}" ]; then
+-      mkdir -p "${gravityBCKdir}" && chown pihole:pihole "${gravityBCKdir}"
++      mkdir -p "${gravityBCKdir}" && chown _pihole:_pihole "${gravityBCKdir}"
+     fi
+ 
+     # If multiple gravityBCKfile's are present (appended with a number), rotate them
+     # We keep at most 10 backups
+@@ -729,9 +729,9 @@ gravity_DownloadBlocklistFromUrl() {
+       echo -e "${OVER}  ${CROSS} ${file_path} does not exist"
+       download=false
+     else
+       # Check if the file or a file referenced by the symlink has a+r permissions
+-      permissions=$(stat -L -c "%a" "$file_path")
++      permissions=$(stat -L -f "%p" "$file_path" | cut -c 4-6)
+       if [[ $permissions == *4 || $permissions == *5 || $permissions == *6 || $permissions == *7 ]]; then
+         # Output that we are using the local file
+         echo -e "${OVER}  ${INFO} Using local file ${file_path}"
+       else
+@@ -1021,9 +1021,9 @@ migrate_to_listsCache_dir() {
+ 
+   # If not, we need to migrate the old files to the new directory
+   local str="Migrating the list's cache directory to new location"
+   echo -ne "  ${INFO} ${str}..."
+-  mkdir -p "${listsCacheDir}" && chown pihole:pihole "${listsCacheDir}"
++  mkdir -p "${listsCacheDir}" && chown _pihole:_pihole "${listsCacheDir}"
+ 
+   # Move the old files to the new directory
+   if mv "${piholeDir}"/list.* "${listsCacheDir}/" 2>/dev/null; then
+     echo -e "${OVER}  ${TICK} ${str}"
+-- 
+2.52.0
+

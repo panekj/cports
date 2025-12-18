@@ -1,0 +1,27 @@
+From 74a6793873b296fc96347ff17a3d8feb51ae2a84 Mon Sep 17 00:00:00 2001
+From: Jakub Panek <me@panekj.dev>
+Date: Thu, 18 Dec 2025 13:00:17 +0100
+Subject: [PATCH] Fix pihole name
+
+---
+ src/files.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/files.c b/src/files.c
+index 5b1d99174809..bba81e64fab6 100644
+--- a/src/files.c
++++ b/src/files.c
+@@ -440,9 +440,9 @@ bool chown_pihole(const char *path, struct passwd *pwd)
+ {
+ 	// Get pihole user's UID and GID if not provided
+ 	if(pwd == NULL)
+ 	{
+-		pwd = getpwnam("pihole");
++		pwd = getpwnam("_pihole");
+ 		if(pwd == NULL)
+ 		{
+ 			log_warn("chown_pihole(): Failed to get pihole user's UID/GID: %s", strerror(errno));
+ 			return false;
+-- 
+2.52.0
+

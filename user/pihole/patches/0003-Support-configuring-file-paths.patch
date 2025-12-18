@@ -1,0 +1,229 @@
+From 74349ec5be7ac9410f265718438c313bf368b93e Mon Sep 17 00:00:00 2001
+From: Mike Crute <mike@crute.us>
+Date: Sat, 10 May 2025 15:14:03 -0700
+Subject: [PATCH 3/4] Support configuring file paths
+
+Allow configuring the file paths for storing configuration and state
+through cmake so that Linux distribution packagers can place their files
+in FHS-friendly paths.
+---
+ src/CMakeLists.txt          | 30 ++++++++++++++++++++++++++++++
+ src/api/action.c            |  2 +-
+ src/config/config.c         | 14 +++++++-------
+ src/config/config.h         |  2 +-
+ src/config/dnsmasq_config.h |  8 ++++----
+ src/files.h                 |  2 +-
+ src/zip/teleporter.c        |  4 ++--
+ 7 files changed, 46 insertions(+), 16 deletions(-)
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 33d1262b02ab..636555f72d75 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -14,8 +14,38 @@ if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
+         set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "" FORCE)
+     endif()
+ endif()
+ 
++if (PIHOLE_STATE_PATH)
++       add_definitions(-DPIHOLE_STATE_PATH="${PIHOLE_STATE_PATH}")
++else()
++       add_definitions(-DPIHOLE_STATE_PATH="/etc/pihole")
++endif()
++
++if (PIHOLE_SHARE_PATH)
++       add_definitions(-DPIHOLE_SHARE_PATH="${PIHOLE_SHARE_PATH}")
++else()
++       add_definitions(-DPIHOLE_SHARE_PATH="/etc/pihole")
++endif()
++
++if (PIHOLE_BIN_PATH)
++       add_definitions(-DPIHOLE_BIN_PATH="${PIHOLE_BIN_PATH}")
++else()
++       add_definitions(-DPIHOLE_BIN_PATH="/usr/local/bin")
++endif()
++
++if (PIHOLE_WEB_PATH)
++       add_definitions(-DPIHOLE_WEB_PATH="${PIHOLE_WEB_PATH}")
++else()
++       add_definitions(-DPIHOLE_WEB_PATH="/var/www/html")
++endif()
++
++if (PIHOLE_RUN_PATH)
++       add_definitions(-DPIHOLE_RUN_PATH="${PIHOLE_RUN_PATH}")
++else()
++       add_definitions(-DPIHOLE_RUN_PATH="/run")
++endif()
++
+ # Do not add run time path information
+ # This ensures CMake does not add rpath information to the binary and
+ # subsequently strip it from the binary during install causing the binary
+ # validation to fail. RPATH is not needed for the FTL binary
+diff --git a/src/api/action.c b/src/api/action.c
+index 51ea9f29fe54..a43a7674128b 100644
+--- a/src/api/action.c
++++ b/src/api/action.c
+@@ -128,9 +128,9 @@ int api_action_gravity(struct ftl_conn *api)
+ 	if(query != NULL)
+ 		get_bool_var(query, "color", &color);
+ 
+ 	const char *extra_env = color ? "FORCE_COLOR" : NULL;
+-	return run_and_stream_command(api, "/usr/local/bin/pihole", (const char *const []){ "pihole", "-g", NULL }, extra_env);
++	return run_and_stream_command(api, PIHOLE_BIN_PATH"/pihole", (const char *const []){ "pihole", "-g", NULL }, extra_env);
+ }
+ 
+ int api_action_restartDNS(struct ftl_conn *api)
+ {
+diff --git a/src/config/config.c b/src/config/config.c
+index c3e3af2cd7e3..ed4f4ea8c6ee 100644
+--- a/src/config/config.c
++++ b/src/config/config.c
+@@ -529,9 +529,9 @@ void initConfig(struct config *conf)
+ 	conf->dns.interface.t = CONF_STRING;
+ 	conf->dns.interface.f = FLAG_RESTART_FTL;
+ 	conf->dns.interface.d.s = (char*)"";
+ 	conf->dns.interface.c = validate_stub; // Type-based checking + dnsmasq syntax checking
+-	
++
+ 	conf->dns.hostRecord.k = "dns.hostRecord";
+ 	conf->dns.hostRecord.h = "Add an A, AAAA and PTR record to the DNS. This adds a singular name to the DNS with associated IPv4 (A) and IPv6 (AAAA) records\n\n Example: \"laptop,laptop.lan,192.168.0.1,1234::100\"";
+ 	conf->dns.hostRecord.a = cJSON_CreateStringReference("A string in the format \"<name>[,<name>....],[<IPv4-address>],[<IPv6-address>][,<TTL>]\"");
+ 	conf->dns.hostRecord.t = CONF_STRING;
+@@ -701,9 +701,9 @@ void initConfig(struct config *conf)
+ 	conf->dns.reply.host.force4.c = validate_stub; // Only type-based checking
+ 
+ 	conf->dns.reply.host.v4.k = "dns.reply.host.IPv4";
+ 	conf->dns.reply.host.v4.h = "Custom IPv4 address for the Pi-hole host";
+-	conf->dns.reply.host.v4.a = cJSON_CreateStringReference("A valid IPv4 address or empty string (\"\")");	
++	conf->dns.reply.host.v4.a = cJSON_CreateStringReference("A valid IPv4 address or empty string (\"\")");
+ 	conf->dns.reply.host.v4.t = CONF_STRUCT_IN_ADDR;
+ 	memset(&conf->dns.reply.host.v4.d.in_addr, 0, sizeof(struct in_addr));
+ 	conf->dns.reply.host.v4.c = validate_stub; // Only type-based checking
+ 
+@@ -1117,9 +1117,9 @@ void initConfig(struct config *conf)
+ 	conf->webserver.paths.webroot.h = "Server root on the host";
+ 	conf->webserver.paths.webroot.a = cJSON_CreateStringReference("A valid path");
+ 	conf->webserver.paths.webroot.t = CONF_STRING;
+ 	conf->webserver.paths.webroot.f = FLAG_RESTART_FTL;
+-	conf->webserver.paths.webroot.d.s = (char*)"/var/www/html";
++	conf->webserver.paths.webroot.d.s = (char*)PIHOLE_WEB_PATH;
+ 	conf->webserver.paths.webroot.c = validate_filepath;
+ 
+ 	conf->webserver.paths.webhome.k = "webserver.paths.webhome";
+ 	conf->webserver.paths.webhome.h = "Sub-directory of the root containing the web interface";
+@@ -1288,24 +1288,24 @@ void initConfig(struct config *conf)
+ 	conf->files.pid.h = "The file which contains the PID of FTL's main process.";
+ 	conf->files.pid.a = cJSON_CreateStringReference("Any writable file");
+ 	conf->files.pid.t = CONF_STRING;
+ 	conf->files.pid.f = FLAG_RESTART_FTL;
+-	conf->files.pid.d.s = (char*)"/run/pihole-FTL.pid";
++	conf->files.pid.d.s = (char*)PIHOLE_RUN_PATH"/FTL.pid";
+ 	conf->files.pid.c = validate_filepath;
+ 
+ 	conf->files.database.k = "files.database";
+ 	conf->files.database.h = "The location of FTL's long-term database";
+ 	conf->files.database.a = cJSON_CreateStringReference("Any FTL database");
+ 	conf->files.database.t = CONF_STRING;
+-	conf->files.database.d.s = (char*)"/etc/pihole/pihole-FTL.db";
++	conf->files.database.d.s = (char*)PIHOLE_STATE_PATH"/pihole-FTL.db";
+ 	conf->files.database.c = validate_filepath;
+ 
+ 	conf->files.gravity.k = "files.gravity";
+ 	conf->files.gravity.h = "The location of Pi-hole's gravity database";
+ 	conf->files.gravity.a = cJSON_CreateStringReference("Any Pi-hole gravity database");
+ 	conf->files.gravity.t = CONF_STRING;
+ 	conf->files.gravity.f = FLAG_RESTART_FTL;
+-	conf->files.gravity.d.s = (char*)"/etc/pihole/gravity.db";
++	conf->files.gravity.d.s = (char*)PIHOLE_STATE_PATH"/gravity.db";
+ 	conf->files.gravity.c = validate_filepath;
+ 
+ 	conf->files.gravity_tmp.k = "files.gravity_tmp";
+ 	conf->files.gravity_tmp.h = "A temporary directory where Pi-hole can store files during gravity updates. This directory must be writable by the user running gravity (typically pihole).";
+@@ -1318,9 +1318,9 @@ void initConfig(struct config *conf)
+ 	conf->files.macvendor.k = "files.macvendor";
+ 	conf->files.macvendor.h = "The database containing MAC -> Vendor information for the network table";
+ 	conf->files.macvendor.a = cJSON_CreateStringReference("Any Pi-hole macvendor database");
+ 	conf->files.macvendor.t = CONF_STRING;
+-	conf->files.macvendor.d.s = (char*)"/etc/pihole/macvendor.db";
++	conf->files.macvendor.d.s = (char*)PIHOLE_SHARE_PATH"/macvendor.db";
+ 	conf->files.macvendor.c = validate_filepath;
+ 
+ 	conf->files.pcap.k = "files.pcap";
+ 	conf->files.pcap.h = "An optional file containing a pcap capture of the network traffic. This file is used for debugging purposes only. If you don't know what this is, you don't need it.\n\n Setting this to an empty string disables pcap recording. The file must be writable by the user running FTL (typically pihole). Failure to write to this file will prevent the DNS resolver from starting. The file is appended to if it already exists.";
+diff --git a/src/config/config.h b/src/config/config.h
+index 877c0a0d0aba..6c814e5b2968 100644
+--- a/src/config/config.h
++++ b/src/config/config.h
+@@ -39,9 +39,9 @@
+ // Location of the legacy (pre-v6.0) config file
+ #define GLOBALCONFFILE_LEGACY "/etc/pihole/pihole-FTL.conf"
+ 
+ // Migration target for the legacy (pre-v6.0) config file
+-#define MIGRATION_TARGET_V6 "/etc/pihole/migration_backup_v6"
++#define MIGRATION_TARGET_V6 PIHOLE_STATE_PATH"/migration_backup_v6"
+ 
+ // Location of the legacy (pre-v6.0) setupVars config file
+ #define SETUPVARS_CONF "/etc/pihole/setupVars.conf"
+ 
+diff --git a/src/config/dnsmasq_config.h b/src/config/dnsmasq_config.h
+index 92175ec9faff..fa05f39c838a 100644
+--- a/src/config/dnsmasq_config.h
++++ b/src/config/dnsmasq_config.h
+@@ -21,15 +21,15 @@ bool read_legacy_dhcp_static_config(void);
+ bool read_legacy_cnames_config(void);
+ bool read_legacy_custom_hosts_config(void);
+ bool write_custom_list(void);
+ 
+-#define DNSMASQ_PH_CONFIG "/etc/pihole/dnsmasq.conf"
+-#define DNSMASQ_TEMP_CONF "/etc/pihole/dnsmasq.conf.temp"
++#define DNSMASQ_PH_CONFIG PIHOLE_STATE_PATH"/dnsmasq.conf"
++#define DNSMASQ_TEMP_CONF PIHOLE_STATE_PATH"/dnsmasq.conf.temp"
+ #define DNSMASQ_STATIC_LEASES MIGRATION_TARGET_V6"/04-pihole-static-dhcp.conf"
+ #define DNSMASQ_CNAMES MIGRATION_TARGET_V6"/05-pihole-custom-cname.conf"
+-#define DNSMASQ_HOSTSDIR "/etc/pihole/hosts"
++#define DNSMASQ_HOSTSDIR PIHOLE_STATE_PATH"/hosts"
+ #define DNSMASQ_CUSTOM_LIST DNSMASQ_HOSTSDIR"/custom.list"
+ #define DNSMASQ_CUSTOM_LIST_LEGACY "/etc/pihole/custom.list"
+ #define DNSMASQ_CUSTOM_LIST_LEGACY_TARGET MIGRATION_TARGET_V6"/custom.list"
+-#define DHCPLEASESFILE "/etc/pihole/dhcp.leases"
++#define DHCPLEASESFILE PIHOLE_STATE_PATH"/dhcp.leases"
+ 
+ #endif //DNSMASQ_CONFIG_H
+diff --git a/src/files.h b/src/files.h
+index b5f160199b74..5478d9bfd789 100644
+--- a/src/files.h
++++ b/src/files.h
+@@ -19,9 +19,9 @@
+ // getpwuid()
+ #include <pwd.h>
+ 
+ #define MAX_ROTATIONS 15
+-#define BACKUP_DIR "/etc/pihole/config_backups"
++#define BACKUP_DIR PIHOLE_STATE_PATH"/config_backups"
+ 
+ bool chmod_file(const char *filename, const mode_t mode);
+ bool file_exists(const char *filename);
+ bool file_readable(const char *filename);
+diff --git a/src/zip/teleporter.c b/src/zip/teleporter.c
+index 8b7b4956b890..515b497e1091 100644
+--- a/src/zip/teleporter.c
++++ b/src/zip/teleporter.c
+@@ -185,13 +185,13 @@ const char *generate_teleporter_zip(mz_zip_archive *zip, char filename[128], voi
+ 	}
+ 
+ 	// Add /etc/pihole/dhcp.lease to the ZIP archive if it exists
+ 	file_comment = "DHCP leases file";
+-	file_path = "/etc/pihole/dhcp.leases";
++	file_path = PIHOLE_STATE_PATH"/dhcp.leases";
+ 	if(file_exists(file_path) && !mz_zip_writer_add_file(zip, file_path+1, file_path, file_comment, (uint16_t)strlen(file_comment), MZ_BEST_COMPRESSION))
+ 	{
+ 		mz_zip_writer_end(zip);
+-		return "Failed to add /etc/pihole/dhcp.leases to heap ZIP archive!";
++		return "Failed to add " PIHOLE_STATE_PATH "/dhcp.leases to heap ZIP archive!";
+ 	}
+ 
+ 	const char *directory = "/etc/dnsmasq.d";
+ 	if(directory_exists(directory))
+-- 
+2.52.0
+

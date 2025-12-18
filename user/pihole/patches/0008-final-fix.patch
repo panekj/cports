@@ -1,0 +1,27 @@
+From 72678e27254769cbb60c048132e1786edaad313a Mon Sep 17 00:00:00 2001
+From: Jakub Panek <me@panekj.dev>
+Date: Thu, 18 Dec 2025 13:17:58 +0100
+Subject: [PATCH] final fix
+
+---
+ src/config/cli.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/config/cli.c b/src/config/cli.c
+index 487c20fec923..c74b48b974da 100644
+--- a/src/config/cli.c
++++ b/src/config/cli.c
+@@ -388,9 +388,9 @@ int set_config_from_CLI(const char *key, const char *value)
+ 	// - pihole with CAP_CHOWN capability on the pihole-FTL binary
+ 	const uid_t euid = geteuid();
+ 	const struct passwd *current_user = getpwuid(euid);
+ 	const bool is_root = euid == 0;
+-	const bool is_pihole = current_user != NULL && strcmp(current_user->pw_name, "pihole") == 0;
++	const bool is_pihole = current_user != NULL && strcmp(current_user->pw_name, "_pihole") == 0;
+ 	const bool have_chown_cap = check_capability(CAP_CHOWN);
+ 	if(!is_root && !(is_pihole && have_chown_cap))
+ 	{
+ 		if(is_pihole)
+-- 
+2.52.0
+

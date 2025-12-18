@@ -1,0 +1,9 @@
+type = process
+command = /usr/bin/pihole-FTL
+logfile = /var/log/pihole/service.log
+pid-file = /run/pihole/FTL.pid
+smooth-recovery = true
+run_as = _pihole
+depends-on: local.target
+depends-on: pre-network.target
+before: network.target
